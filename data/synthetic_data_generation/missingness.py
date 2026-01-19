@@ -118,3 +118,105 @@ def generate_mcar_reference(X_complete: np.ndarray,
         X_mcar[permuted_idx, m] = np.nan
 
     return X_mcar
+
+
+
+
+def create_mnar_ind(colliders,
+                    collider_parents,
+                    num_var: int,
+                    num_extra_e: int = 3,
+                    num_m: int = 6,
+                    seed: int | None = None):
+    """
+    MNAR missingness indicator selection.
+    Faithful translation of the R create_mnar_ind() logic.
+
+    MNAR constraints:
+    - No self-masking: X -> R_X forbidden
+    - Parents of missingness indicators must themselves have missing values
+    - MNAR extends MAR: start from collider-based MAR structure
+    """
+    if seed is not None:
+        np.random.seed(seed)
+
+    ms = []
+    prt_ms = []
+
+    # ---------------------------------------------------------
+    # Step 1: Start with MAR-like structure (collider parents)
+    # ---------------------------------------------------------
+    for cl, parents in zip(colliders, collider_parents):
+        for p in parents:
+            if (p not in ms) and (p not in prt_ms):
+                ms.append(p)
+                prt_ms.append(cl)
+            if len(ms) >= num_extra_e:
+                break
+        if len(ms) >= num_extra_e:
+            break
+
+    # ---------------------------------------------------------
+    # Step 2: Limit to num_extra_e colliders
+    # ---------------------------------------------------------
+    if len(ms) > num_extra_e:
+        idx = np.random.permutation(len(ms))[:num_extra_e]
+        ms = [ms[i] for i in idx]
+        prt_ms = [prt_ms[i] for i in idx]
+
+    # ---------------------------------------------------------
+    # Step 3: Add MNAR indicators
+    # ---------------------------------------------------------
+    # Remaining number of missingness indicators to add
+    remaining = num_m - len(ms)
+
+    # Parents must NOT be:
+    # - already missingness indicators
+    # - already parents
+    # - colliders (for MNAR extension)
+    left_parents = list(set(range(num_var)) - set(prt_ms) - set(ms))
+    np.random.shuffle(left_parents)
+
+    # Missingness indicators must NOT be:
+    # - already ms
+    # - already prt_ms
+    left_ms = list(set(range(num_var)) - set(ms) - set(prt_ms))
+    np.random.shuffle(left_ms)
+
+    # ---------------------------------------------------------
+    # Step 4: Assign MNAR parents (no self-masking)
+    # ---------------------------------------------------------
+    for i in range(remaining):
+        m = left_ms[i]
+
+        # choose a parent that is not equal to m
+        possible_parents = [v for v in left_parents if v != m]
+        prt = np.random.choice(possible_parents)
+
+        ms.append(m)
+        prt_ms.append(prt)
+
+    return ms, prt_ms
+
+
+
+
+
+def choose_missingness_indicators(mode,
+                                  colliders,
+                                  collider_parents,
+                                  num_var,
+                                  num_extra_e=3,
+                                  num_m=6,
+                                  seed=None):
+
+    if mode == "mar":
+        return create_mar_ind(colliders, collider_parents,
+                              num_var, num_extra_e, num_m, seed)
+
+    elif mode == "mnar":
+        return create_mnar_ind(colliders, collider_parents,
+                               num_var, num_extra_e, num_m, seed)
+
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
