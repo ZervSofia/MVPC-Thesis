@@ -5,6 +5,9 @@ description = ""
 authors = [
     {name = "math1p0027",email = "math1p0027@math.uoc.gr"}
 ]
+packages = [
+    {include = "assignment_03"}
+]
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
