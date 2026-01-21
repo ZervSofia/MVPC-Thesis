@@ -6,12 +6,19 @@ from scipy.stats import multivariate_normal
 # 1. Random DAG generation (paper-faithful)
 # ============================================================
 
+import numpy as np
+import networkx as nx
+
 def random_dag(n_nodes: int,
                p_edge: float | None = None,
                seed: int | None = None):
     """
-    Generate a random DAG with expected average degree ≈ 2,
-    matching R's randomDAG(num_var, 2/(num_var-1)).
+    Generate a random DAG similar to pcalg::randomDAG(num_var, 2/(num_var-1)).
+
+    Steps:
+    1. Sample an undirected Erdős–Rényi graph with edge prob p_edge.
+    2. Sample a random permutation (topological order) of nodes.
+    3. Orient each undirected edge from earlier -> later in that order.
     """
     if seed is not None:
         np.random.seed(seed)
@@ -19,15 +26,41 @@ def random_dag(n_nodes: int,
     if p_edge is None:
         p_edge = 2 / (n_nodes - 1)
 
-    adj = np.zeros((n_nodes, n_nodes), dtype=int)
+    # ---------------------------------------------------------
+    # 1. Undirected Erdős–Rényi adjacency (symmetric, no self-loops)
+    # ---------------------------------------------------------
+    undirected = np.zeros((n_nodes, n_nodes), dtype=int)
 
     for i in range(n_nodes):
         for j in range(i + 1, n_nodes):
             if np.random.rand() < p_edge:
-                adj[i, j] = 1
+                undirected[i, j] = 1
+                undirected[j, i] = 1
+
+    # ---------------------------------------------------------
+    # 2. Random topological order (permutation of nodes)
+    # ---------------------------------------------------------
+    order = np.random.permutation(n_nodes)
+    # Map node -> position in order
+    pos = {node: k for k, node in enumerate(order)}
+
+    # ---------------------------------------------------------
+    # 3. Orient edges according to order: earlier -> later
+    # ---------------------------------------------------------
+    adj = np.zeros((n_nodes, n_nodes), dtype=int)
+
+    for i in range(n_nodes):
+        for j in range(n_nodes):
+            if undirected[i, j] == 1 and i < j:
+                # Decide direction based on order positions
+                if pos[i] < pos[j]:
+                    adj[i, j] = 1
+                else:
+                    adj[j, i] = 1
 
     G = nx.DiGraph(adj)
     return G, adj
+
 
 
 # ============================================================
