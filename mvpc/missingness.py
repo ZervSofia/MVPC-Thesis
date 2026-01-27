@@ -13,6 +13,8 @@ This module corresponds to MVPC Step 1.
 
 import numpy as np
 from itertools import combinations
+from tqdm import tqdm
+
 
 
 def get_m_ind(data):
@@ -86,7 +88,7 @@ def get_prt_R_ind(data, indep_test, alpha, R_ind):
         if len(neighbors) > ord_size:
             done = False
 
-        for y in list(neighbors):
+        for y in tqdm(list(neighbors), desc=f"R={R_ind}, ord={ord_size}", leave=False):
             # neighbors of R_ind excluding y
             nbrs = [k for k in neighbors if k != y]
 
@@ -142,7 +144,7 @@ def detection_prt_m(data, indep_test, alpha, p):
     m_inds = get_m_ind(data)
     prt = {}
 
-    for R_ind in m_inds:
+    for R_ind in tqdm(m_inds, desc="Detecting parents of missingness indicators"):
         parents = get_prt_R_ind(data, indep_test, alpha, R_ind)
         if parents:  # only keep indicators that actually have parents
             prt[R_ind] = parents

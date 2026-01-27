@@ -12,6 +12,8 @@ Pipeline:
 
 import numpy as np
 from itertools import combinations
+from tqdm import tqdm
+
 
 from .missingness import detection_prt_m
 from .skeleton import skeleton2
@@ -42,7 +44,7 @@ def _pc_skeleton_initial(data, indep_test, alpha):
         done = True
         edges = np.argwhere(G)
 
-        for x, y in edges:
+        for x, y in tqdm(edges, desc=f"Initial skeleton, ord={ord_size}", leave=False):
             if x >= y:
                 continue  # avoid double testing
 

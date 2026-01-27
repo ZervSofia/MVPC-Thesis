@@ -18,18 +18,17 @@ import numpy as np
 # Test-wise deletion (R: test_wise_deletion)
 # ---------------------------------------------------------
 def test_wise_deletion(var_ind, data, return_mask=False):
-    """
-    Delete rows with any missing value among variables in var_ind.
-
-    If return_mask=True, return the boolean mask instead of the data.
-    """
+    
     mask = np.ones(data.shape[0], dtype=bool)
     for v in var_ind:
         mask &= ~np.isnan(data[:, v])
 
     if return_mask:
         return mask
-    return data[mask, :]
+
+    # Return ONLY the columns in var_ind (R behavior)
+    return data[mask][:, var_ind]
+
 
 
 
@@ -38,24 +37,12 @@ def test_wise_deletion(var_ind, data, return_mask=False):
 # perm (R: perm)
 # ---------------------------------------------------------
 def perm(W, data):
-    """
-    R's perm(W, data):
-
-        data <- test_wise_deletion(W, data)
-        len = nrow(data)
-        ind_p <- sample(1:len)
-        data = data[ind_p, ]
-        data_permw <- data[, W]
-        data.frame(data_permw)
-
-    Here we return a numpy array of shape (n_twdel, len(W)).
-    """
-    W = list(W)
-    data_tw = test_wise_deletion(W, data)
+    
+    data_tw = test_wise_deletion(W, data)   # already only W columns
     n = data_tw.shape[0]
     idx = np.random.permutation(n)
-    data_perm = data_tw[idx, :]
-    return data_perm[:, W]
+    return data_tw[idx, :]                  # no extra column indexing
+
 
 
 # ---------------------------------------------------------

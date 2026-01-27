@@ -7,8 +7,6 @@ used in gaussCItest.drw.
 Implements:
     - indx_test_wise_deletion
     - get_ind_r_xys
-    - get_prt_i
-    - get_logidata
     - kde_weights
     - compute_weights_continuous
 """
@@ -16,10 +14,7 @@ Implements:
 import numpy as np
 from scipy.stats import gaussian_kde
 
-from .mvpc_utils import (
-    test_wise_deletion,
-    get_prt_i,
-)
+from .mvpc_utils import get_prt_i
 
 
 # ---------------------------------------------------------
@@ -33,7 +28,7 @@ def indx_test_wise_deletion(var_ind, data):
 
 
 # ---------------------------------------------------------
-# 2. Identify missingness indicators among x,y,S (R: get_ind_r_xys)
+# 2. Identify missingness indicators among x,y,S,W (R: get_ind_r_xys)
 # ---------------------------------------------------------
 def get_ind_r_xys(ind, suffstat):
     data = suffstat["data"]
@@ -45,33 +40,7 @@ def get_ind_r_xys(ind, suffstat):
 
 
 # ---------------------------------------------------------
-# 3. Logistic regression data builder (R: get_logidata)
-# ---------------------------------------------------------
-def get_logidata(ind_ri, suffstat):
-    """
-    Build the logistic regression dataset for missingness indicator ri.
-    R version:
-        ri <- as.integer(!is.na(data[, ind_ri]))
-        logidata <- data.frame(ri, data[, prt_i])
-        test_wise_deletion(...)
-    """
-    data = suffstat["data"]
-    prt_i = get_prt_i(ind_ri, suffstat)
-
-    ri = (~np.isnan(data[:, ind_ri])).astype(int)
-
-    if len(prt_i) == 0:
-        X = ri.reshape(-1, 1)
-    else:
-        X = np.column_stack([ri, data[:, prt_i]])
-
-    # test-wise deletion on all columns
-    idx = indx_test_wise_deletion(range(X.shape[1]), X)
-    return X[idx, :]
-
-
-# ---------------------------------------------------------
-# 4. KDE-based density ratio weights (R: kde.weights)
+# 3. KDE-based density ratio weights (R: kde.weights)
 # ---------------------------------------------------------
 def kde_weights(x_del, x_full):
     """
@@ -96,22 +65,22 @@ def kde_weights(x_del, x_full):
 
 
 # ---------------------------------------------------------
-# 5. Main function: compute continuous DRW weights
+# 4. Main function: compute continuous DRW weights
 # ---------------------------------------------------------
 def compute_weights_continuous(corr_ind, suffstat):
     """
     Faithful translation of R's compute.weights.continuous.
 
-    corr_ind = indices of variables involved in the CI test
-               (x, y, S, and W)
+    Returns:
+        weights : np.ndarray of shape (n_tw,)
+        idx_tw  : np.ndarray of row indices used after test-wise deletion
     """
     data = suffstat["data"]
 
-    # Step 1: test-wise deletion indices
+    # Step 1: test-wise deletion indices for corr_ind
     idx_tw = indx_test_wise_deletion(corr_ind, data)
     n_tw = len(idx_tw)
 
-    # Initialize weights = 1
     weights = np.ones(n_tw)
 
     # Step 2: identify missingness indicators among corr_ind
@@ -121,20 +90,17 @@ def compute_weights_continuous(corr_ind, suffstat):
     for ind_ri in ind_r:
         prt_i = get_prt_i(ind_ri, suffstat)
 
-        # Parent variable values
-        pa = data[:, prt_i] if len(prt_i) > 0 else None
-
-        # Values after deletion
-        if pa is None:
+        if len(prt_i) == 0:
             continue
 
+        # R assumes a single parent here; keep it 1D
+        pa = data[:, prt_i]      # shape (n, 1) or (n,)
+        pa = pa.reshape(-1)      # flatten
+
         pa_del = pa[idx_tw]
-        pa_full = pa[~np.isnan(pa).any(axis=1)]
+        pa_full = pa[~np.isnan(pa)]
 
-        # Compute KDE-based density ratio
-        beta = kde_weights(pa_del.flatten(), pa_full.flatten())
-
-        # Multiply into global weights
+        beta = kde_weights(pa_del, pa_full)
         weights *= beta
 
-    return weights
+    return weights, idx_tw

@@ -9,17 +9,12 @@ import numpy as np
 from numpy.linalg import inv
 from scipy.stats import norm
 
-# ---------------------------------------------------------
-# Import your MVPC utilities (adjust path if needed)
-# ---------------------------------------------------------
 from ..utils.mvpc_utils import (
     test_wise_deletion,
     cond_PermC,
     get_prt_m_xys,
 )
 from ..utils.compute_weights_continuous import compute_weights_continuous
-
-# (We will create weights_continuous.py next if you don’t have it yet)
 
 
 # ---------------------------------------------------------
@@ -48,7 +43,6 @@ def gauss_ci_weighted(x, y, S, C, n_eff):
     Gaussian CI test using a weighted covariance matrix C.
     Mirrors R's gaussCItest but uses weighted covariance.
     """
-    # Extract submatrix for variables [x, y, S]
     idx = [x, y] + list(S)
     C_sub = C[np.ix_(idx, idx)]
 
@@ -57,11 +51,9 @@ def gauss_ci_weighted(x, y, S, C, n_eff):
     except np.linalg.LinAlgError:
         return 1.0
 
-    # Partial correlation
     r_xy_S = -prec[0, 1] / np.sqrt(prec[0, 0] * prec[1, 1])
     r_xy_S = np.clip(r_xy_S, -0.999999, 0.999999)
 
-    # Fisher z-transform
     z = 0.5 * np.log((1 + r_xy_S) / (1 - r_xy_S))
     stat = np.sqrt(n_eff - len(S) - 3) * abs(z)
 
@@ -72,27 +64,14 @@ def gauss_ci_weighted(x, y, S, C, n_eff):
 # 3. DRW-corrected Gaussian CI test (R: gaussCItest.drw)
 # ---------------------------------------------------------
 def gauss_ci_drw(x, y, S, suffstat):
-    """
-    Faithful Python translation of R's gaussCItest.drw.
-
-    suffstat must contain:
-        - "data": full dataset
-        - "prt_m": missingness-parent structure
-        - "skel": initial skeleton (for cond_PermC)
-    """
     data = suffstat["data"]
-    
-    # -----------------------------------------------------
-    # Step 1: Check if correction is needed
-    # -----------------------------------------------------
+
+    # Step 1: check if correction is needed
     if not cond_PermC(x, y, S, suffstat):
-        # Fall back to deletion-based Gaussian CI
         from .gauss_permc import gauss_ci_td
         return gauss_ci_td(x, y, S, suffstat)
 
-    # -----------------------------------------------------
-    # Step 2: Get parents of missingness indicators of {x,y,S}
-    # -----------------------------------------------------
+    # Step 2: parents of missingness indicators of {x, y, S}
     ind_test = [x, y] + list(S)
     ind_W = list(set(get_prt_m_xys(ind_test, suffstat)))
 
@@ -100,9 +79,7 @@ def gauss_ci_drw(x, y, S, suffstat):
         from .gauss_permc import gauss_ci_td
         return gauss_ci_td(x, y, S, suffstat)
 
-    # -----------------------------------------------------
-    # Step 3: Recursively add parents of W until closure
-    # -----------------------------------------------------
+    # Step 3: recursively add parents of W until closure
     pa_W = list(set(get_prt_m_xys(ind_W, suffstat)))
     candi_W = list(set(pa_W) - set(ind_W))
 
@@ -113,28 +90,21 @@ def gauss_ci_drw(x, y, S, suffstat):
 
     ind_W = list(set(ind_W))
 
-    # -----------------------------------------------------
-    # Step 4: Compute DRW weights (faithful to R)
-    # -----------------------------------------------------
+    # Step 4: indices for DRW: corr_ind = {x, y, S, W}
     corr_ind = ind_test + ind_W
-    weights = compute_weights_continuous(corr_ind, suffstat)
 
-    # -----------------------------------------------------
-    # Step 5: Test-wise deletion on corr_ind
-    # -----------------------------------------------------
-    data_tw = test_wise_deletion(corr_ind, data)
-    weights_tw = weights
+    # Step 5: compute DRW weights and row indices after deletion
+    weights_tw, idx_tw = compute_weights_continuous(corr_ind, suffstat)
 
+    # Step 6: test-wise deletion on corr_ind using the same rows
+    data_tw = data[idx_tw, :]
+    X_corr = data_tw[:, corr_ind]
 
-    # -----------------------------------------------------
-    # Step 6: Weighted covariance
-    # -----------------------------------------------------
-    C_w = weighted_cov(data_tw[:, corr_ind], weights_tw)
+    # Step 7: weighted covariance
+    C_w = weighted_cov(X_corr, weights_tw)
     n_eff = np.sum(weights_tw)
 
-    # -----------------------------------------------------
-    # Step 7: Gaussian CI test using weighted covariance
-    # -----------------------------------------------------
-    # In the weighted covariance matrix, x,y,S correspond to indices 0,1,2,...
+    # Step 8: Gaussian CI test using weighted covariance
+    # In C_w, variables are ordered as [x, y, S, W] -> x=0, y=1, S=2..(1+|S|)
     S_local = list(range(2, 2 + len(S)))
     return gauss_ci_weighted(0, 1, S_local, C_w, n_eff)

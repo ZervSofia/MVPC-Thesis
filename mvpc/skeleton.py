@@ -14,6 +14,8 @@ The goal:
 
 import numpy as np
 from itertools import combinations
+from tqdm import tqdm
+
 
 
 def skeleton2(data, corr_test, alpha, skel_pre, prt_m):
@@ -67,8 +69,13 @@ def skeleton2(data, corr_test, alpha, skel_pre, prt_m):
 
         # List all current edges
         edges = np.argwhere(G)
+        degrees = G.sum(axis=0) 
+        max_deg = degrees.max()
+        
+        if ord_size > max_deg: 
+            break
 
-        for x, y in edges:
+        for x, y in tqdm(edges, desc=f"Corrected skeleton, ord={ord_size}", leave=False):
             if x >= y:
                 continue  # avoid double testing
 
