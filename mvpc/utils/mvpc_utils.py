@@ -17,17 +17,15 @@ import numpy as np
 # ---------------------------------------------------------
 # Test-wise deletion (R: test_wise_deletion)
 # ---------------------------------------------------------
-def test_wise_deletion(var_ind, data, return_mask=False):
-    
+def test_wise_deletion(var_ind, data):
+    # var_ind: list of column indices
     mask = np.ones(data.shape[0], dtype=bool)
     for v in var_ind:
-        mask &= ~np.isnan(data[:, v])
+        col = data[:, v]
+        if np.isnan(col).any():
+            mask &= ~np.isnan(col)
+    return data[mask, :]
 
-    if return_mask:
-        return mask
-
-    # Return ONLY the columns in var_ind (R behavior)
-    return data[mask][:, var_ind]
 
 
 

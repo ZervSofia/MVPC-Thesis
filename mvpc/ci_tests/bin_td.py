@@ -1,40 +1,47 @@
-# mvpc/ci_tests/bin_td.py
-
 import numpy as np
+from scipy.stats import ttest_ind
 from ..utils.mvpc_utils import test_wise_deletion
-from .gSquareBin import gSquareBin
 
 def bin_ci_td(x, y, S, suffstat):
     """
-    Deletion-based binary CI test.
-    Faithful to R's binCItest.td.
-
-    Parameters
-    ----------
-    x, y : int
-        Variable indices.
-    S : list[int]
-        Conditioning set.
-    suffstat : dict
-        Must contain "data".
-
-    Returns
-    -------
-    float
-        p-value of the G² test.
+    Deletion-based binary–continuous CI test.
+    Faithful to R's binCItest.td (ANOVA-style test).
     """
     data = suffstat["data"]
     idx = [x, y] + list(S)
 
-    # Test-wise deletion
+    # Step 1: test-wise deletion
     sub = test_wise_deletion(idx, data)
-
-    # Extract only the relevant columns
-    sub = sub[:, idx]
-
-    # If too few samples, return independence
     if sub.shape[0] < 5:
         return 1.0
 
-    # Run unweighted G² test
-    return gSquareBin(0, 1, list(range(2, len(idx))), sub)
+    # Extract variables
+    b = sub[:, 0]          # binary missingness indicator
+    c = sub[:, 1]          # continuous variable
+    S_mat = sub[:, 2:]     # conditioning set
+
+    # Step 2: if no conditioning set, simple t-test
+    if S_mat.shape[1] == 0:
+        g0 = c[b == 0]
+        g1 = c[b == 1]
+        if len(g0) < 2 or len(g1) < 2:
+            return 1.0
+        _, p = ttest_ind(g0, g1, equal_var=False)
+        return p if p is not None else 1.0
+
+    # Step 3: regress c on S (no intercept)
+    try:
+        beta, *_ = np.linalg.lstsq(S_mat, c, rcond=None)
+    except np.linalg.LinAlgError:
+        return 1.0
+
+    r = c - S_mat @ beta  # residuals
+
+    # Step 4: t-test on residuals
+    g0 = r[b == 0]
+    g1 = r[b == 1]
+    if len(g0) < 2 or len(g1) < 2:
+        return 1.0
+
+    _, p = ttest_ind(g0, g1, equal_var=False)
+    return p if p is not None else 1.0

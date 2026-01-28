@@ -28,12 +28,16 @@ def gauss_ci_td(x, y, S, suffstat):
     data = suffstat["data"]
     idx = [x, y] + list(S)
 
-    # delete rows with missing in x,y,S, and keep only these columns
+    # 1) row-wise deletion
     sub = test_wise_deletion(idx, data)
+
+    # 2) subset and reorder columns to [x, y, S]
+    sub = sub[:, idx]   # <-- THIS LINE IS CRITICAL
+    # print(f"x={x}, y={y}, S={list(S)}, n_after_deletion={sub.shape[0]}")
     if sub.shape[0] < 5:
         return 1.0
 
-    cov = np.cov(sub.T)
+    cov = np.cov(sub, rowvar=False)
     try:
         prec = inv(cov)
     except np.linalg.LinAlgError:
@@ -47,6 +51,7 @@ def gauss_ci_td(x, y, S, suffstat):
     stat = np.sqrt(n - len(S) - 3) * abs(z)
 
     return 2 * (1 - norm.cdf(stat))
+
 
 
 # ---------------------------------------------------------

@@ -9,7 +9,7 @@ from .dag_and_data import (
     detect_collider_parents,
 )
 
-from .missingness import (
+from .missingness_synthetic import (
     create_mar_ind,
     create_mnar_ind,
     generate_missing_values,

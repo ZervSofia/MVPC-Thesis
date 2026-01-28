@@ -118,38 +118,81 @@ def get_prt_R_ind(data, indep_test, alpha, R_ind):
     return parents
 
 
+# def detection_prt_m(data, indep_test, alpha, p):
+#     """
+#     Detect parents of all missingness indicators.
+
+#     Parameters
+#     ----------
+#     data : np.ndarray
+#         Data matrix (n x p).
+#     indep_test : callable
+#         Base CI test used for missingness-parent detection.
+#     alpha : float
+#         Significance threshold.
+#     p : int
+#         Number of variables.
+
+#     Returns
+#     -------
+#     dict
+#         {
+#             'm': list of missingness indicator indices (with at least one parent),
+#             'prt': {R_ind: [parent indices]}
+#         }
+#     """
+#     m_inds = get_m_ind(data)
+#     prt = {}
+
+#     for R_ind in tqdm(m_inds, desc="Detecting parents of missingness indicators"):
+#         parents = get_prt_R_ind(data, indep_test, alpha, R_ind)
+#         if parents:  # only keep indicators that actually have parents
+#             prt[R_ind] = parents
+
+#     # Keep only missingness indicators that have at least one parent
+#     m_inds_filtered = [m for m in m_inds if m in prt]
+
+#     return {"m": m_inds_filtered, "prt": prt}
+
+
+
+
+# def detection_prt_m(data, indep_test, alpha, p):
+    
+#     m_inds = get_m_ind(data)
+
+#     # persistent modified data (like R)
+#     data_mod = data.copy()
+#     prt = {}
+
+#     for R_ind in m_inds:
+#         # permanently binarize this column
+#         data_mod[:, R_ind] = np.isnan(data[:, R_ind]).astype(int)
+
+#         parents = get_prt_R_ind(data_mod, indep_test, alpha, R_ind)
+#         if parents:
+#             prt[R_ind] = parents
+
+#     m_inds_filtered = [m for m in m_inds if m in prt]
+
+#     return {"m": m_inds_filtered, "prt": prt}
+
+
+
 def detection_prt_m(data, indep_test, alpha, p):
-    """
-    Detect parents of all missingness indicators.
-
-    Parameters
-    ----------
-    data : np.ndarray
-        Data matrix (n x p).
-    indep_test : callable
-        Base CI test used for missingness-parent detection.
-    alpha : float
-        Significance threshold.
-    p : int
-        Number of variables.
-
-    Returns
-    -------
-    dict
-        {
-            'm': list of missingness indicator indices (with at least one parent),
-            'prt': {R_ind: [parent indices]}
-        }
-    """
+    
     m_inds = get_m_ind(data)
+    print(f"[Step 1] m_inds (vars with NaNs): {m_inds}")
     prt = {}
 
     for R_ind in tqdm(m_inds, desc="Detecting parents of missingness indicators"):
         parents = get_prt_R_ind(data, indep_test, alpha, R_ind)
-        if parents:  # only keep indicators that actually have parents
+        print(f"[Step 1] R_ind={R_ind}, parents={parents}")
+        if parents:
             prt[R_ind] = parents
 
-    # Keep only missingness indicators that have at least one parent
     m_inds_filtered = [m for m in m_inds if m in prt]
+    print(f"[Step 1] m_inds_filtered (with ≥1 parent): {m_inds_filtered}")
+    print(f"[Step 1] prt dict: {prt}")
 
     return {"m": m_inds_filtered, "prt": prt}
