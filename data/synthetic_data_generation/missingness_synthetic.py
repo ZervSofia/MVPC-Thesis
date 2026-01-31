@@ -89,7 +89,7 @@ def generate_missing_values(X_complete: np.ndarray,
                             ms: list[int],
                             prt_ms: list[int],
                             p_missing_h: float = 0.9,
-                            p_missing_l: float = 0.01,
+                            p_missing_l: float = 0.1,
                             seed: int | None = None):
     """
     Generate MAR missingness based on parent values.

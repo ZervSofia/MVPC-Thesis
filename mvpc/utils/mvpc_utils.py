@@ -14,6 +14,15 @@ Core utilities for MVPC, faithful to the original R implementation:
 import numpy as np
 
 
+
+PERMC_DIAG = {
+    "total_calls": 0,
+    "used": 0,       # cond_PermC returned True
+    "fallback": 0,   # cond_PermC returned False
+}
+
+
+
 # ---------------------------------------------------------
 # Test-wise deletion (R: test_wise_deletion)
 # ---------------------------------------------------------
@@ -34,12 +43,25 @@ def test_wise_deletion(var_ind, data):
 # ---------------------------------------------------------
 # perm (R: perm)
 # ---------------------------------------------------------
-def perm(W, data):
+# def perm(W, data):
     
-    data_tw = test_wise_deletion(W, data)   # already only W columns
+#     data_tw = test_wise_deletion(W, data)   # already only W columns
+#     n = data_tw.shape[0]
+#     idx = np.random.permutation(n)
+#     return data_tw[idx, :]                  # no extra column indexing
+
+
+
+
+def perm(W, data):
+    # test-wise deletion on W
+    data_tw = test_wise_deletion(W, data)
     n = data_tw.shape[0]
     idx = np.random.permutation(n)
-    return data_tw[idx, :]                  # no extra column indexing
+    data_perm = data_tw[idx, :]
+
+    # keep only W columns, in the order of W
+    return data_perm[:, W]
 
 
 
@@ -102,27 +124,69 @@ def common_neighbor(x, y, skel):
     return np.any((skel_mat[:, x] == 1) & (skel_mat[:, y] == 1))
 
 
+# def cond_PermC(x, y, S, suffstat):
+#     """
+#     R: cond.PermC
+
+#     Logic:
+#       ind <- c(x, y, S)
+#       cond <- FALSE
+#       if ("skel" %in% names(suffStat)) {
+#         if (length(intersect(ind, suffStat$prt_m$m)) > 0 &&
+#             common.neighbor(x, y, suffStat$skel)) {
+#           cond <- TRUE
+#         }
+#         return(cond)
+#       } else {
+#         return(TRUE)
+#       }
+#     """
+#     ind = [x, y] + list(S)
+
+#     # If no skeleton provided, always do correction
+#     if "skel" not in suffstat:
+#         return True
+
+#     prt_m = suffstat["prt_m"]
+#     m_list = set(prt_m["m"])
+
+#     # 1) xyS have missingness indicators with parents
+#     if len(set(ind) & m_list) == 0:
+#         return False
+
+#     # 2) x and y have a common neighbor in the current skeleton
+#     skel = suffstat["skel"]
+#     return common_neighbor(x, y, skel)
+
+
+
 def cond_PermC(x, y, S, suffstat):
     """
-    R: cond.PermC
+    Faithful translation of R cond.PermC:
 
-    Logic:
-      ind <- c(x, y, S)
+    cond.PermC<-function(x, y, S, suffStat){
+      ind <- c(x,y,S)
       cond <- FALSE
-      if ("skel" %in% names(suffStat)) {
-        if (length(intersect(ind, suffStat$prt_m$m)) > 0 &&
-            common.neighbor(x, y, suffStat$skel)) {
-          cond <- TRUE
+      if("skel" %in% names(suffStat)){
+        if(length(intersect(ind, suffStat$prt_m$m)) > 0){  # 1) xyS have missingness indicators with parents
+          if(common.neighbor(x,y,suffStat$skel)){  # 2) x and y have common child
+            cond <- TRUE
+          }
         }
         return(cond)
-      } else {
+      }else{
         return(TRUE)
       }
+    }
     """
+
+    PERMC_DIAG["total_calls"] += 1
+
     ind = [x, y] + list(S)
 
     # If no skeleton provided, always do correction
     if "skel" not in suffstat:
+        PERMC_DIAG["used"] += 1
         return True
 
     prt_m = suffstat["prt_m"]
@@ -130,8 +194,14 @@ def cond_PermC(x, y, S, suffstat):
 
     # 1) xyS have missingness indicators with parents
     if len(set(ind) & m_list) == 0:
+        PERMC_DIAG["fallback"] += 1
         return False
 
     # 2) x and y have a common neighbor in the current skeleton
     skel = suffstat["skel"]
-    return common_neighbor(x, y, skel)
+    if common_neighbor(x, y, skel):
+        PERMC_DIAG["used"] += 1
+        return True
+    else:
+        PERMC_DIAG["fallback"] += 1
+        return False
