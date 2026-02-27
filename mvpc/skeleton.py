@@ -1,11 +1,8 @@
 """
-skeleton.py
+Corrected skeleton search for MVPC.
+Python version of the R function skeleton2()
 
-Corrected skeleton search for MVPC (Step 2b).
-This module implements a clean Python version of the R function skeleton2(),
-but without R-specific complexity (graphNEL, S4 classes, stable.fast, etc.).
-
-The goal:
+Steps:
     - Start from the initial PC skeleton (skel_pre)
     - Re-test edges using the corrected CI test (corr_test)
     - Remove edges that become independent after correction
@@ -47,10 +44,8 @@ def skeleton2(data, corr_test, alpha, skel_pre, prt_m):
         Matrix of maximum p-values observed for each pair.
     """
 
-    # ---------------------------------------------------------
-    # Step 0 — Extract initial skeleton from causal-learn
-    # ---------------------------------------------------------
-    # causal-learn stores adjacency as a numpy array
+    
+    # extract initial skeleton from causal-learn
     G = skel_pre.G.copy()
     p = G.shape[0]
 
@@ -58,9 +53,8 @@ def skeleton2(data, corr_test, alpha, skel_pre, prt_m):
     sepset = [[None for _ in range(p)] for _ in range(p)]
     pmax = np.full((p, p), -np.inf)
 
-    # ---------------------------------------------------------
-    # Step 1 — PC-style iterative search over conditioning set sizes
-    # ---------------------------------------------------------
+
+    # PC-style iterative search over conditioning set sizes
     ord_size = 0
     
 
@@ -77,7 +71,7 @@ def skeleton2(data, corr_test, alpha, skel_pre, prt_m):
 
         for x, y in tqdm(edges, desc=f"Corrected skeleton, ord={ord_size}", leave=False):
             if x >= y:
-                continue  # avoid double testing
+                continue  
 
             # Neighbors of x excluding y
             neighbors = [k for k in range(p) if G[k, x] and k != y]
@@ -90,9 +84,8 @@ def skeleton2(data, corr_test, alpha, skel_pre, prt_m):
 
             independent = False
 
-            # ---------------------------------------------------------
-            # Step 2 — Test all conditioning sets of size ord_size
-            # ---------------------------------------------------------
+            
+            # Test all conditioning sets of size ord_size
             for S in combinations(neighbors, ord_size):
                 suffstat = {
                     "data": data,

@@ -1,13 +1,11 @@
 """
-mvpc_pipeline.py
-
-High-level orchestration of the MVPC algorithm (Missing Value PC).
+MVPC algorithm main pipeline
 
 Pipeline:
-    1. Detect parents of missingness indicators (Step 1).
+    1. Detect parents of missingness indicators.
     2. Build an initial PC-style skeleton using the base CI test.
     3. Correct the skeleton using the corrected CI test (DRW / PermC).
-    4. (Optional) Orient edges – not implemented here, returns skeleton.
+    
 """
 
 import numpy as np
@@ -21,20 +19,18 @@ from .skeleton import skeleton2
 
 def _pc_skeleton_initial(data, indep_test, alpha):
     """
-    Minimal PC-style skeleton search using the *base* CI test.
-
-    This is the analogue of pcalg::skeleton() in R, but simplified:
+    PC-style skeleton search using the base CI test.
         - undirected graph
-        - no fixedGaps/fixedEdges
-        - no conservative/maj.rule variants
+        - no fixed edges
+ 
     """
     n, p = data.shape
 
-    # fully connected undirected graph (no self-loops)
+    # fully connected undirected graph
     G = np.ones((p, p), dtype=bool)
     np.fill_diagonal(G, False)
 
-    # separation sets (optional, kept for completeness)
+    # separation sets
     sepset = [[None for _ in range(p)] for _ in range(p)]
 
     ord_size = 0
@@ -46,7 +42,7 @@ def _pc_skeleton_initial(data, indep_test, alpha):
 
         for x, y in tqdm(edges, desc=f"Initial skeleton, ord={ord_size}", leave=False):
             if x >= y:
-                continue  # avoid double testing
+                continue  
 
             # neighbors of x excluding y
             neighbors = [k for k in range(p) if G[k, x] and k != y]
@@ -80,7 +76,7 @@ def _pc_skeleton_initial(data, indep_test, alpha):
 
 class MVPC:
     """
-    Main MVPC pipeline class.
+    Main MVPC pipeline class
 
     Parameters
     ----------
@@ -105,7 +101,7 @@ class MVPC:
 
     def run(self, data):
         """
-        Run the MVPC pipeline on a data matrix with missing values (NaNs).
+        Run the MVPC pipeline on a data matrix with missing values.
 
         Returns
         -------
@@ -121,9 +117,9 @@ class MVPC:
         """
         n, p = data.shape
 
-        # ---------------------------------------------------------
-        # Step 1: Detect parents of missingness indicators
-        # ---------------------------------------------------------
+    
+        # Detect parents of missingness indicators
+
         prt_m = detection_prt_m(
             data=data,
             indep_test=self.indep_test,
@@ -131,25 +127,22 @@ class MVPC:
             p=p
         )
 
-        # ---------------------------------------------------------
-        # Step 2a: Initial skeleton (undirected, base CI test)
-        # ---------------------------------------------------------
+        # Initial skeleton (undirected, base CI test)
         G_initial, sepset_initial = _pc_skeleton_initial(
             data=data,
             indep_test=self.indep_test,
             alpha=self.alpha
         )
 
-        # Wrap in simple object for skeleton2 (to mimic skel_pre)
+        # Wrap in simple object for skeleton2 
         class SimpleSkeleton:
             def __init__(self, G):
                 self.G = G
 
         skel_pre = SimpleSkeleton(G_initial)
 
-        # ---------------------------------------------------------
-        # Step 2b: Corrected skeleton (MVPC correction step)
-        # ---------------------------------------------------------
+
+        # Corrected skeleton (MVPC correction step)
         G_corrected, sepset_corrected, pmax_corrected = skeleton2(
             data=data,
             corr_test=self.corr_test,
@@ -158,12 +151,7 @@ class MVPC:
             prt_m=prt_m
         )
 
-        # ---------------------------------------------------------
-        # Step 2c: Orientation (not implemented here)
-        # ---------------------------------------------------------
-        # In the R code, this is done via udag2pdagRelaxed / pc.cons.intern.
-        # You can add an orientation step later if needed.
-        # For now, we return the corrected skeleton.
+
 
         return {
             "G_initial": G_initial,

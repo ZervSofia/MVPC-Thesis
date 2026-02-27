@@ -1,4 +1,4 @@
-# orientation.py
+
 
 import numpy as np
 
@@ -29,7 +29,7 @@ def apply_orientation_rules(G):
     while changed:
         changed = False
 
-        # Rule 2: orient chains
+        # orient chains
         for x in range(p):
             for y in range(p):
                 if G[x, y] == 1 and G[y, x] == 0:  # x -> y
