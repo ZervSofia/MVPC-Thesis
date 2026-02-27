@@ -1,9 +1,8 @@
 import os
 import pandas as pd
 
-# ----------------------------
-# Paths
-# ----------------------------
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 RAW_HOSP_PATH = os.path.join(
@@ -16,9 +15,8 @@ OUTPUT_FILE = os.path.join(
     "processed_mimic_24h_labs_demographics.csv"
 )
 
-# ----------------------------
+
 # Lab variables to keep
-# ----------------------------
 LAB_LABELS = [
     "Sodium",
     "Potassium",
@@ -32,9 +30,8 @@ LAB_LABELS = [
     "Glucose",
 ]
 
-# ----------------------------
+
 # Load raw tables
-# ----------------------------
 def load_hosp_tables(raw_hosp_path=RAW_HOSP_PATH):
     print("Loading raw MIMIC hosp CSVs...")
     patients = pd.read_csv(os.path.join(raw_hosp_path, "patients.csv.gz"))
@@ -50,11 +47,10 @@ def load_hosp_tables(raw_hosp_path=RAW_HOSP_PATH):
 
     return patients, admissions, labevents, labitems
 
-# ----------------------------
+
 # Select lab events for chosen labels
-# ----------------------------
 def select_labs_24h(labevents, labitems, admissions, lab_labels):
-    # Map labels -> itemids
+    # Map labels in itemids
     labitems_sel = labitems[labitems["label"].isin(lab_labels)]
     itemids = labitems_sel["itemid"].unique().tolist()
 
@@ -78,11 +74,11 @@ def select_labs_24h(labevents, labitems, admissions, lab_labels):
         how="inner"
     )
 
-    # Ensure datetime
+
     le["charttime"] = pd.to_datetime(le["charttime"])
     le["admittime"] = pd.to_datetime(le["admittime"])
 
-    # Keep only first 24h after admission
+    # only first 24h after admission
     le_24h = le[
         (le["charttime"] >= le["admittime"]) &
         (le["charttime"] <= le["admittime"] + pd.Timedelta(hours=24))
@@ -92,9 +88,8 @@ def select_labs_24h(labevents, labitems, admissions, lab_labels):
 
     return le_24h
 
-# ----------------------------
+
 # Aggregate labs per admission
-# ----------------------------
 def aggregate_labs(le_24h):
     # Median per (subject_id, hadm_id, label)
     agg = (
@@ -111,24 +106,22 @@ def aggregate_labs(le_24h):
         values="valuenum"
     ).reset_index()
 
-    # Ensure columns are simple strings
+
     labs_pivot.columns.name = None
 
     print("Aggregated labs pivot shape:", labs_pivot.shape)
     return labs_pivot
 
-# ----------------------------
-# Merge with admissions + patients
-# ----------------------------
+
+# Merge with admissions and patients
+
 def merge_with_context(labs_pivot, admissions, patients):
-    # Merge labs with admissions
     df = labs_pivot.merge(
         admissions,
         on=["subject_id", "hadm_id"],
         how="left"
     )
 
-    # Merge with patients
     df = df.merge(
         patients,
         on="subject_id",
@@ -147,7 +140,7 @@ def merge_with_context(labs_pivot, admissions, patients):
         .dt.total_seconds() / 3600.0
     )
 
-    # ED wait time in hours (may be NaN if no ED times)
+    # ED wait time in hours
     df["ed_wait_time_hours"] = (
         (df["edouttime"] - df["edregtime"])
         .dt.total_seconds() / 3600.0
@@ -155,21 +148,20 @@ def merge_with_context(labs_pivot, admissions, patients):
 
     return df
 
-# ----------------------------
+
 # Select final variables
-# ----------------------------
 def select_final_variables(df):
-    # Labs we requested (some may be missing in demo)
+
     lab_cols = [col for col in LAB_LABELS if col in df.columns]
 
-    # Demographics (from patients)
+
     demo_cols = [
         "gender",
         "anchor_age",
         "anchor_year_group",
     ]
 
-    # Admission context + severity
+
     adm_cols = [
         "admission_type",
         "admission_location",
@@ -185,7 +177,7 @@ def select_final_variables(df):
 
     keep_cols = ["subject_id", "hadm_id"] + lab_cols + demo_cols + adm_cols
 
-    # Keep only columns that exist
+
     keep_cols = [c for c in keep_cols if c in df.columns]
 
     df_final = df[keep_cols].copy()
@@ -194,23 +186,19 @@ def select_final_variables(df):
     print(df_final.columns.tolist())
     print("Final shape:", df_final.shape)
 
-    # Show missingness summary
+
     print("\nMissingness (fraction NaN per column):")
     print(df_final.isna().mean())
 
     return df_final
 
-# ----------------------------
-# Save dataset
-# ----------------------------
+
 def save_dataset(df, path=OUTPUT_FILE):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     df.to_csv(path, index=False)
     print(f"\nSaved processed dataset to: {path}")
 
-# ----------------------------
-# Main
-# ----------------------------
+
 def main():
     patients, admissions, labevents, labitems = load_hosp_tables()
 

@@ -2,18 +2,13 @@ import numpy as np
 import networkx as nx
 from scipy.stats import multivariate_normal
 
-# ============================================================
-# 1. Random DAG generation (paper-faithful)
-# ============================================================
 
-import numpy as np
-import networkx as nx
 
 def random_dag(n_nodes: int,
                p_edge: float | None = None,
                seed: int | None = None):
     """
-    Generate a random DAG similar to pcalg::randomDAG(num_var, 2/(num_var-1)).
+    Generate a random DAG.
 
     Steps:
     1. Sample an undirected Erdős–Rényi graph with edge prob p_edge.
@@ -26,9 +21,8 @@ def random_dag(n_nodes: int,
     if p_edge is None:
         p_edge = 2 / (n_nodes - 1)
 
-    # ---------------------------------------------------------
-    # 1. Undirected Erdős–Rényi adjacency (symmetric, no self-loops)
-    # ---------------------------------------------------------
+  
+    # Undirected Erdős–Rényi adjacency (symmetric, no self-loops)
     undirected = np.zeros((n_nodes, n_nodes), dtype=int)
 
     for i in range(n_nodes):
@@ -37,16 +31,13 @@ def random_dag(n_nodes: int,
                 undirected[i, j] = 1
                 undirected[j, i] = 1
 
-    # ---------------------------------------------------------
-    # 2. Random topological order (permutation of nodes)
-    # ---------------------------------------------------------
+
+    # Random topological order (permutation of nodes)
     order = np.random.permutation(n_nodes)
-    # Map node -> position in order
     pos = {node: k for k, node in enumerate(order)}
 
-    # ---------------------------------------------------------
-    # 3. Orient edges according to order: earlier -> later
-    # ---------------------------------------------------------
+
+    # Orient edges according to order
     adj = np.zeros((n_nodes, n_nodes), dtype=int)
 
     for i in range(n_nodes):
@@ -63,9 +54,7 @@ def random_dag(n_nodes: int,
 
 
 
-# ============================================================
-# 2. Assign random edge weights (linear Gaussian SEM)
-# ============================================================
+# Assign random edge weights (linear Gaussian SEM)
 
 def weighted_adj_matrix(adj: np.ndarray,
                         weight_low: float = -1.0,
@@ -89,14 +78,13 @@ def weighted_adj_matrix(adj: np.ndarray,
     return W
 
 
-# ============================================================
-# 3. Compute true covariance implied by DAG
-# ============================================================
+
+# Compute true covariance
 
 def true_covariance(W: np.ndarray,
                     noise_var: float = 1.0):
     """
-    Compute Σ = (I - B)^(-1) Ω (I - B)^(-T),
+    Compute sigma = (I - B) ^(-1) omega (I - B)^(-T)
     where B is the weighted adjacency matrix.
     """
     B = W.T
@@ -109,15 +97,14 @@ def true_covariance(W: np.ndarray,
     return Sigma
 
 
-# ============================================================
-# 4. Sample complete data (joint Gaussian)
-# ============================================================
+
+# Sample complete data (joint Gaussian)
 
 def sample_complete_data(Sigma: np.ndarray,
                           n_samples: int,
                           seed: int | None = None):
     """
-    Sample X ~ N(0, Σ), matching rmvnorm in R.
+    Sample X ~ N(0, sigma), matching rmvnorm in R.
     """
     if seed is not None:
         np.random.seed(seed)
@@ -132,13 +119,11 @@ def sample_complete_data(Sigma: np.ndarray,
     return X
 
 
-# ============================================================
-# 5. Collider detection (used for MAR / MNAR)
-# ============================================================
+# Collider detection (used for MAR / MNAR)
 
 def detect_colliders(adj: np.ndarray):
     """
-    Return indices of collider nodes (≥2 parents).
+    Return indices of collider nodes (>=2 parents).
     """
     return [j for j in range(adj.shape[1]) if np.sum(adj[:, j]) > 1]
 
@@ -154,10 +139,3 @@ def detect_collider_parents(adj: np.ndarray, colliders: list[int]):
 
 
 
-
-# G, adj = random_dag(n_nodes=10, seed=1)
-# W = weighted_adj_matrix(adj, seed=1)
-# Sigma = true_covariance(W)
-
-# # Check positive definiteness
-# np.all(np.linalg.eigvals(Sigma) > 0)

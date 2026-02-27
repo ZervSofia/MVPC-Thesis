@@ -17,9 +17,6 @@ from .missingness_synthetic import (
 )
 
 
-# ============================================================
-# Top-level synthetic data generator (Python version of gen_data)
-# ============================================================
 
 def gen_data(
     num_samples: int,
@@ -32,7 +29,7 @@ def gen_data(
     p_missing_l: float = 0.01,
 ):
     """
-    Full synthetic data generator, faithful to the MVPC paper.
+    Synthetic data generator
 
     Parameters
     ----------
@@ -72,31 +69,23 @@ def gen_data(
     if seed is not None:
         np.random.seed(seed)
 
-    # --------------------------------------------------------
-    # 1. Generate random DAG
-    # --------------------------------------------------------
+    
     G, adj = random_dag(num_var, seed=seed)
 
-    # Assign random weights
     W = weighted_adj_matrix(adj, seed=seed)
-
-    # Compute covariance
     Sigma = true_covariance(W)
 
-    # --------------------------------------------------------
-    # 2. Sample complete Gaussian data
-    # --------------------------------------------------------
+
+    # Sample complete Gaussian data
+
     X_complete = sample_complete_data(Sigma, num_samples, seed=seed)
 
-    # --------------------------------------------------------
-    # 3. Detect colliders + parents
-    # --------------------------------------------------------
+    
     colliders = detect_colliders(adj)
     collider_parents = detect_collider_parents(adj, colliders)
 
-    # --------------------------------------------------------
-    # 4. Choose missingness indicators (MAR or MNAR)
-    # --------------------------------------------------------
+    # missingness indicators MAR or MNAR
+
     if mode == "mar":
         ms, prt_ms = create_mar_ind(
             colliders,
@@ -118,9 +107,8 @@ def gen_data(
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
-    # --------------------------------------------------------
-    # 5. Inject missingness (MAR or MNAR mechanism)
-    # --------------------------------------------------------
+
+    # Inject missingness 
     X_m = generate_missing_values(
         X_complete,
         ms,
@@ -130,14 +118,13 @@ def gen_data(
         seed,
     )
 
-    # --------------------------------------------------------
-    # 6. Generate MCAR reference dataset
-    # --------------------------------------------------------
+
+    # MCAR reference dataset
+
     X_ref = generate_mcar_reference(X_complete, X_m, ms, seed)
 
-    # --------------------------------------------------------
-    # 7. Ground truth structure
-    # --------------------------------------------------------
+ 
+
     ground_truth = {
         "adj": adj,
         "colliders": colliders,

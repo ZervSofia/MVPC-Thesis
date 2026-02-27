@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.stats import norm
 
-# ============================================================
-# 1. Choose missingness indicators (MAR)
-#    Corresponds to create_mar_ind() in R
-# ============================================================
+
+# Choose missingness indicators (MAR)
+# Corresponds to create_mar_ind() in R
 
 import numpy as np
 
@@ -15,7 +14,7 @@ def create_mar_ind(colliders,
                    num_m: int = 6,
                    seed: int | None = None):
     """
-    Faithful translation of the R create_mar_ind().
+    Translation of create_mar_ind().
 
     Returns
     -------
@@ -30,30 +29,23 @@ def create_mar_ind(colliders,
     ms = []
     prt_ms = []
 
-    # ---------------------------------------------------------
-    # Step 1: collect all collider-parent pairs (no duplicates)
-    # ---------------------------------------------------------
+    
+    # collect all collider-parent pairs 
     for cl, parents in zip(colliders, collider_parents):
         for p in parents:
             if (p not in ms) and (p not in prt_ms):
                 ms.append(p)
                 prt_ms.append(cl)
 
-    # ---------------------------------------------------------
-    # Step 2: keep only num_extra_e collider-based pairs (randomly)
-    # ---------------------------------------------------------
+    
+    # keep only num_extra_e collider-based pairs (randomly)
     if len(ms) > num_extra_e:
         idx = np.random.permutation(len(ms))[:num_extra_e]
         ms = [ms[i] for i in idx]
         prt_ms = [prt_ms[i] for i in idx]
 
-    # ---------------------------------------------------------
-    # Step 3: add more parents (not collider, not in ms/prt_ms)
-    # ---------------------------------------------------------
-    # In R:
-    # left_ind_prt = 1:num_var
-    # left_ind_prt = setdiff(left_ind_prt, ms)
-    # left_ind_prt = setdiff(left_ind_prt, prt_ms)
+    
+    # add more parents (not collider, not in ms/prt_ms)
     left_ind_prt = list(set(range(num_var)) - set(ms) - set(prt_ms))
     np.random.shuffle(left_ind_prt)
 
@@ -64,12 +56,9 @@ def create_mar_ind(colliders,
     for i in range(end_for):
         prt_ms.append(left_ind_prt[i])
 
-    # ---------------------------------------------------------
-    # Step 4: add more missingness indicators (not in ms/prt_ms)
-    # ---------------------------------------------------------
-    # In R:
-    # left_ind_m = setdiff(1:num_var, ms)
-    # left_ind_m = setdiff(left_ind_m, prt_ms)
+
+    # Step 4: add more missingness indicators 
+    
     left_ind_m = list(set(range(num_var)) - set(ms) - set(prt_ms))
     np.random.shuffle(left_ind_m)
 
@@ -80,10 +69,8 @@ def create_mar_ind(colliders,
 
 
 
-# ============================================================
-# 2. Generate MAR missing values
-#    Corresponds to generate_missing_values() + mis_cal_ind()
-# ============================================================
+# Generate MAR missing values
+# Corresponds to generate_missing_values() + mis_cal_ind()
 
 def generate_missing_values(X_complete: np.ndarray,
                             ms: list[int],
@@ -102,14 +89,14 @@ def generate_missing_values(X_complete: np.ndarray,
 
     for m, prt in zip(ms, prt_ms):
 
-        # Random threshold as in R: runif(0.1, 0.7)
+        
         bottom_p = np.random.uniform(0.1, 0.7)
         threshold = norm.ppf(bottom_p)
 
-        # Parent-based indicator
+        
         ind = X_complete[:, prt] < threshold
 
-        # Bernoulli sampling
+        
         h_x = np.random.rand(n) < p_missing_h
         l_x = np.random.rand(n) < p_missing_l
 
@@ -121,17 +108,14 @@ def generate_missing_values(X_complete: np.ndarray,
     return X_m
 
 
-# ============================================================
-# 3. Generate MCAR reference data
-#    Corresponds to data_ref in R
-# ============================================================
+# Generate MCAR reference data
 
 def generate_mcar_reference(X_complete: np.ndarray,
                             X_mar: np.ndarray,
                             ms: list[int],
                             seed: int | None = None):
     """
-    Faithful translation of the R MCAR generation logic.
+    translation of MCAR generation logic.
     For each missingness indicator m:
         - take the MAR mask r
         - randomly permute r
@@ -147,7 +131,7 @@ def generate_mcar_reference(X_complete: np.ndarray,
         # MAR mask for this variable
         r = np.isnan(X_mar[:, m])
 
-        # Permute the mask (R: sample(r))
+        # Permute the mask
         permuted_mask = np.random.permutation(r)
 
         # Apply MCAR missingness
@@ -166,13 +150,13 @@ def create_mnar_ind(colliders,
                     num_m: int = 6,
                     seed: int | None = None):
     """
-    Faithful translation of the R create_mnar_ind() function.
+    translation of the R create_mnar_ind() function.
 
     MNAR constraints:
     - Start from MAR-like collider-based structure
     - Limit to num_extra_e collider-based missingness indicators
     - Add MNAR indicators whose parents ALSO have missing values
-    - No self-masking (parent != child)
+    - No self-masking
     - MNAR parents cannot be colliders
     """
 
@@ -182,59 +166,49 @@ def create_mnar_ind(colliders,
     ms = []
     prt_ms = []
 
-    # ---------------------------------------------------------
-    # Step 1: Collect ALL collider-parent pairs (MAR-like base)
-    # ---------------------------------------------------------
+    
+    # Collect collider-parent pairs
     for cl, parents in zip(colliders, collider_parents):
         for p in parents:
             if (p not in ms) and (p not in prt_ms):
                 ms.append(p)
                 prt_ms.append(cl)
 
-    # ---------------------------------------------------------
-    # Step 2: Keep only num_extra_e collider-based pairs (random)
-    # ---------------------------------------------------------
+
+    # keep only num_extra_e collider-based pairs
     if len(ms) > num_extra_e:
         idx = np.random.permutation(len(ms))[:num_extra_e]
         ms = [ms[i] for i in idx]
         prt_ms = [prt_ms[i] for i in idx]
 
-    # ---------------------------------------------------------
-    # Step 3: Add MNAR indicators
-    # ---------------------------------------------------------
+
+    # add MNAR indicators
     remaining = num_m - len(ms)
 
     # MNAR parents cannot be colliders
     left_ind_prt = list(set(range(num_var)) - set(colliders))
-    # Also cannot reuse existing ms or prt_ms
+    
+    # cannot reuse existing ms or prt_ms
     left_ind_prt = list(set(left_ind_prt) - set(ms) - set(prt_ms))
     np.random.shuffle(left_ind_prt)
 
-    # Missingness indicators must not be in ms or prt_ms
+
     left_ind_m = list(set(range(num_var)) - set(ms) - set(prt_ms))
     np.random.shuffle(left_ind_m)
 
-    # ---------------------------------------------------------
-    # Step 4: Assign MNAR indicators
-    #         R logic:
-    #         if i <= num_extra_e:
-    #             ms[count] = prt_ms[i]   # parent also missing
-    #         else:
-    #             ms[count] = left_ind_prt[i]
-    # ---------------------------------------------------------
+    # assign MNAR indicators
     countm = len(ms)
     countp = len(prt_ms)
 
     for i in range(remaining):
 
-        # Case 1: parent must also be missing (MNAR constraint)
+        # parent must also be missing MNAR 
         if i < num_extra_e:
-            new_m = prt_ms[i]     # parent becomes missing too
+            new_m = prt_ms[i]     
         else:
             new_m = left_ind_prt[i]
 
-        # Choose parent for missingness indicator
-        # Must not be self-masking
+        # no self-masking
         possible_parents = [v for v in left_ind_prt if v != new_m]
         prt = np.random.choice(possible_parents)
 
