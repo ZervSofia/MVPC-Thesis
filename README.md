@@ -86,4 +86,13 @@ This repository has three main folders:
 
 - **02_mvpc_synthetic_data.ipynb:** Runs MVPC with TD, PermC, and DRW CI tests on synthetic data. Computes evaluation metrics such as skeleton SHD and F1 score across sample sizes, repetitions, and missingness modes. 
 
-- **03_mvpc_mimic_data.ipynb:** Applies MVPC to the MIMIC dataset, introduces MAR/MNAR missingness, runs the three CI tests, and aggregates edge frequencies over bootstrapped samples. Visualizes network structures and densities. ---
+- **03_mvpc_mimic_data.ipynb:** Applies MVPC to the MIMIC dataset, introduces MAR/MNAR missingness, runs the three CI tests, and aggregates edge frequencies over bootstrapped samples. Visualizes network structures and densities. 
+
+
+---
+
+## References 
+
+Original Paper Tu et al., 2020 – Causal discovery in the presence of missing data: MVPC algorithm
+
+Original Implementation: https://github.com/TURuibo/MVPC
