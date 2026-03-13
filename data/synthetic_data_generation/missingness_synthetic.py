@@ -79,8 +79,8 @@ def create_mar_ind(colliders,
 def generate_missing_values(X_complete: np.ndarray,
                             ms: list[int],
                             prt_ms: list[int],
-                            p_missing_h: float = 0.9,
-                            p_missing_l: float = 0.1,
+                            p_missing_h: float = 0.98,
+                            p_missing_l: float = 0.02,
                             seed: int | None = None):
     """
     Generate MAR missingness based on parent values.
@@ -94,11 +94,11 @@ def generate_missing_values(X_complete: np.ndarray,
     for m, prt in zip(ms, prt_ms):
 
         
-        bottom_p = np.random.uniform(0.1, 0.7)
-        threshold = norm.ppf(bottom_p)
-
-        
-        ind = X_complete[:, prt] < threshold
+        # bottom_p = np.random.uniform(0.1, 0.7)
+        # threshold = norm.ppf(bottom_p)
+        # ind = X_complete[:, prt] < threshold
+        threshold = np.median(X_complete[:, prt])
+        ind = X_complete[:, prt] > threshold
 
         
         h_x = np.random.rand(n) < p_missing_h
